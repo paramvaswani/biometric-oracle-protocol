@@ -299,6 +299,16 @@
         overflow-x: auto;
       }
 
+      pre.mermaid {
+        background: none;
+        border: none;
+        border-radius: 0;
+        padding: 0;
+        margin: 0;
+        font-size: inherit;
+        overflow-x: visible;
+      }
+
       /* Step list */
       .steps {
         counter-reset: step;
@@ -373,6 +383,8 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
       }
 
       @media (max-width: 768px) {
@@ -555,20 +567,33 @@ console.log(envelope.claim.value); // e.g. 74 (recovery score)</code></pre>
         <section id="lifecycle">
           <h2>Settlement Lifecycle</h2>
           <div class="diagram-wrap">
-            <div class="mermaid">
-              sequenceDiagram participant M as Market Contract participant O as
-              Oracle (Adapter) participant P as Device Provider API participant
-              V as Verifier M->>O: fetchMetric(userId, metric, range) O->>P: GET
-              /recovery?start=&end= P-->>O: { records: [...] } O->>O:
-              sign(canonicalize(claim), adapter_key) O-->>M: BiometricEnvelope
-              M->>V: verifyEnvelope(envelope) V->>V: check version + fields
-              V->>V: check nonce registry V->>V: check staleness_window_ms
-              V->>V: check confidence_score ≥ 0.5 V-->>M: { valid: true, errors:
-              [] } M->>M: generateStalenessProof(envelope) Note over M:
-              dispute_window_ms begins alt No dispute M->>M: Settlement final
-              else Dispute opened M->>V: openDispute + submitEvidence V->>V:
-              adjudicate(dispute, original) V-->>M: DisputeRecord resolved end
-            </div>
+            <pre class="mermaid">
+sequenceDiagram
+  participant M as Market Contract
+  participant O as Oracle (Adapter)
+  participant P as Device Provider API
+  participant V as Verifier
+  M->>O: fetchMetric(userId, metric, range)
+  O->>P: GET /recovery?start=&end=
+  P-->>O: { records: [...] }
+  O->>O: sign(canonicalize(claim), adapter_key)
+  O-->>M: BiometricEnvelope
+  M->>V: verifyEnvelope(envelope)
+  V->>V: check version + fields
+  V->>V: check nonce registry
+  V->>V: check staleness_window_ms
+  V->>V: check confidence_score >= 0.5
+  V-->>M: { valid: true, errors: [] }
+  M->>M: generateStalenessProof(envelope)
+  Note over M: dispute_window_ms begins
+  alt No dispute
+    M->>M: Settlement final
+  else Dispute opened
+    M->>V: openDispute + submitEvidence
+    V->>V: adjudicate(dispute, original)
+    V-->>M: DisputeRecord resolved
+  end
+            </pre>
           </div>
 
           <ol class="steps">
@@ -807,15 +832,19 @@ const envelope = await adapter.fetchMetric(
         <section id="disputes">
           <h2>Dispute Flow</h2>
           <div class="diagram-wrap">
-            <div class="mermaid">
-              flowchart TD A[Settlement submitted] --> B{Within dispute window?}
-              B -- No --> C[Settlement final] B -- Yes --> D[openDispute] D -->
-              E[submitEvidence with counter-envelopes] E --> F{adjudicate} F --
-              No evidence --> G[resolved_for_claimant] F -- Different provider
-              --> H[open · needs manual review] F -- Same provider, higher
-              confidence --> I[resolved_for_challenger] F -- Same provider,
-              lower confidence --> G H --> J[resolveDispute manual]
-            </div>
+            <pre class="mermaid">
+flowchart TD
+  A[Settlement submitted] --> B{Within dispute window?}
+  B -- No --> C[Settlement final]
+  B -- Yes --> D[openDispute]
+  D --> E[submitEvidence with counter-envelopes]
+  E --> F{adjudicate}
+  F -- No evidence --> G[resolved_for_claimant]
+  F -- Different provider --> H[open · needs manual review]
+  F -- Same provider, higher confidence --> I[resolved_for_challenger]
+  F -- Same provider, lower confidence --> G
+  H --> J[resolveDispute manual]
+            </pre>
           </div>
           <pre><code>import { openDispute, submitEvidence, adjudicate, resolveDispute } from "@bonp/sdk";
 
